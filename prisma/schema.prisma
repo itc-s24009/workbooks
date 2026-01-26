@@ -1,0 +1,108 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String         @id @default(uuid())
+  name           String?
+  email          String        @unique
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+  directories    Directory[]
+  receivedShares Share[]        @relation("Receiver")
+  sentShares     Share[]        @relation("Sender")
+  sessions       StudySession[]
+  workbooks      Workbook[]
+
+  @@map("users")
+}
+
+model Directory {
+  id        String      @id @default(uuid())
+  userId    String      @map("user_id")
+  parentId  String?     @map("parent_id")
+  name      String
+  createdAt DateTime    @default(now()) @map("created_at")
+  updatedAt DateTime    @updatedAt @map("updated_at")
+  parent    Directory?  @relation("DirHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children  Directory[] @relation("DirHierarchy")
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workbooks Workbook[]
+
+  @@map("directories")
+}
+
+model Workbook {
+  id          String         @id @default(uuid())
+  userId      String         @map("user_id")
+  parentId    String?        @map("parent_id")
+  name        String
+  description String?
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+  cards       Card[]
+  shares      Share[]
+  sessions    StudySession[]
+  directory   Directory?     @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("workbooks")
+}
+
+model Card {
+  id         String        @id @default(uuid())
+  workbookId String        @map("workbook_id")
+  question   String
+  answer     String
+  createdAt  DateTime      @default(now()) @map("created_at")
+  updatedAt  DateTime      @updatedAt @map("updated_at")
+  workbook   Workbook      @relation(fields: [workbookId], references: [id], onDelete: Cascade)
+  records    StudyRecord[]
+
+  @@map("cards")
+}
+
+model StudySession {
+  id           String        @id @default(uuid())
+  userId       String        @map("user_id")
+  workbookId   String        @map("workbook_id")
+  accuracyRate Float         @map("rate")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+  records      StudyRecord[]
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workbook     Workbook      @relation(fields: [workbookId], references: [id], onDelete: Cascade)
+
+  @@map("study_sessions")
+}
+
+model StudyRecord {
+  id        String       @id @default(uuid())
+  sessionId String       @map("session_id")
+  cardId    String       @map("card_id")
+  isCorrect Boolean      @map("is_correct")
+  createdAt DateTime     @default(now()) @map("created_at")
+  card      Card         @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  session   StudySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@map("study_records")
+}
+
+model Share {
+  id         String   @id @default(uuid())
+  senderId   String   @map("sender_id")
+  receiverId String   @map("receiver_id")
+  workbookId String   @map("workbook_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+  receiver   User     @relation("Receiver", fields: [receiverId], references: [id], onDelete: Cascade)
+  sender     User     @relation("Sender", fields: [senderId], references: [id], onDelete: Cascade)
+  workbook   Workbook @relation(fields: [workbookId], references: [id], onDelete: Cascade)
+
+  @@map("shares")
+}
