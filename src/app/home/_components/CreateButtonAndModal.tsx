@@ -77,6 +77,7 @@ export function CreateButtonAndModal({ parentId }: { parentId?: string }) {
                   type="text" 
                   name="name" 
                   id="name" 
+                  maxLength={30}
                   required 
                   autoFocus // ポップアップが出た瞬間にフォーカス
                   placeholder="入力してください"
@@ -90,6 +91,7 @@ export function CreateButtonAndModal({ parentId }: { parentId?: string }) {
                   <textarea 
                     name="description" 
                     id="description" 
+                    maxLength={50}
                     rows={3} 
                     className="bg-gray-900 border border-gray-700 text-white block w-full rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none transition"
                   ></textarea>

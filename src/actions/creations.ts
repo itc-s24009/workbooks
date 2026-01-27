@@ -6,42 +6,38 @@ import { revalidatePath } from "next/cache"
 
 export type ActionResult = { success: boolean; message: string; }
 
-// 共通：名前の重複をチェックする関数 (フォルダと問題集を両方確認)
+// バリデーション用定数
+const LIMITS = { NAME: 50, DESC: 300 };
+
 async function checkDuplicateName(userId: string, parentId: string | null, name: string, excludeId?: string): Promise<boolean> {
   const whereDir: any = { userId, parentId, name };
   const whereWb: any = { userId, parentId, name };
-  
-  if (excludeId) {
-    whereDir.id = { not: excludeId };
-    whereWb.id = { not: excludeId };
-  }
-
-  // ディレクトリとワークブックの両方を探す
-  const existingDir = await prisma.directory.findFirst({ where: whereDir });
-  const existingWb = await prisma.workbook.findFirst({ where: whereWb });
-
-  return !!(existingDir || existingWb);
+  if (excludeId) { whereDir.id = { not: excludeId }; whereWb.id = { not: excludeId }; }
+  const [d, w] = await Promise.all([
+    prisma.directory.findFirst({ where: whereDir }),
+    prisma.workbook.findFirst({ where: whereWb })
+  ]);
+  return !!(d || w);
 }
 
-// ----------------------------------------------------------------
-
-// 1. アイテム作成
+// 1. 作成
 export async function createItem(formData: FormData): Promise<ActionResult> {
   const session = await auth();
-  if (!session?.user?.email) return { success: false, message: "ログインしてください。" };
+  if (!session?.user?.email) return { success: false, message: "ログインしてください" };
   const user = await prisma.user.findUnique({ where: { email: session.user.email }});
-  if (!user) return { success: false, message: "ユーザー情報が見つかりません。" };
+  if (!user) return { success: false, message: "ユーザー不明" };
 
-  const name = formData.get('name') as string;
+  const name = (formData.get('name') as string || "").trim();
   const type = formData.get('type') as 'directory' | 'workbook';
-  const description = formData.get('description') as string | null;
+  const description = (formData.get('description') as string || "").trim();
   const parentId = formData.get('parentId') as string | null; 
 
-  if (!name || !type) return { success: false, message: "名前と種類は必須です。" };
+  if (!name || !type) return { success: false, message: "名前は必須です" };
+  if (name.length > LIMITS.NAME) return { success: false, message: `名前は${LIMITS.NAME}文字以内で入力してください` };
+  if (description.length > LIMITS.DESC) return { success: false, message: `説明は${LIMITS.DESC}文字以内で入力してください` };
 
-  // 重複チェック
   const isDuplicate = await checkDuplicateName(user.id, parentId || null, name);
-  if (isDuplicate) return { success: false, message: `同じ場所に「${name}」という名前のアイテムが既に存在します。` };
+  if (isDuplicate) return { success: false, message: `同じ場所に「${name}」が既に存在します` };
   
   try {
     if (type === 'directory') {
@@ -51,113 +47,90 @@ export async function createItem(formData: FormData): Promise<ActionResult> {
     }
     revalidatePath("/home");
     if (parentId) revalidatePath(`/directory/${parentId}`);
-    return { success: true, message: "作成しました！" };
-  } catch (error) {
-    return { success: false, message: "作成に失敗しました。" };
-  }
+    return { success: true, message: "作成しました" };
+  } catch (e) { return { success: false, message: "作成失敗" }; }
 }
 
-// 2. アイテム編集（名前変更など）
-export async function updateItem(
-  itemId: string,
-  itemType: 'directory' | 'workbook',
-  newData: { name: string; description?: string }
-): Promise<ActionResult> {
+// 2. 編集
+export async function updateItem(itemId: string, itemType: 'directory' | 'workbook', newData: { name: string; description?: string }): Promise<ActionResult> {
   const session = await auth();
-  if (!session?.user?.email) return { success: false, message: "ログインしてください。" };
+  if (!session?.user?.email) return { success: false, message: "ログインしてください" };
   const user = await prisma.user.findUnique({ where: { email: session.user.email }});
-  if (!user) return { success: false, message: "ユーザーが見つかりません。" };
+  if (!user) return { success: false, message: "ユーザー不明" };
 
-  // 元のデータの場所(parentId)を知るために取得
+  const name = newData.name.trim();
+  const desc = (newData.description || "").trim();
+
+  if (!name) return { success: false, message: "名前は必須です" };
+  if (name.length > LIMITS.NAME) return { success: false, message: `名前は${LIMITS.NAME}文字以内です` };
+  if (desc.length > LIMITS.DESC) return { success: false, message: `説明は${LIMITS.DESC}文字以内です` };
+
   let currentItem: { parentId: string | null } | null = null;
   if (itemType === 'directory') {
     currentItem = await prisma.directory.findUnique({ where: { id: itemId }, select: { parentId: true } });
   } else {
     currentItem = await prisma.workbook.findUnique({ where: { id: itemId }, select: { parentId: true } });
   }
+  if (!currentItem) return { success: false, message: "対象が見つかりません" };
 
-  if (!currentItem) return { success: false, message: "アイテムが見つかりません" };
-
-  // 重複チェック
-  const isDuplicate = await checkDuplicateName(user.id, currentItem.parentId, newData.name, itemId);
-  if (isDuplicate) return { success: false, message: `「${newData.name}」という名前は既に使われています。` };
+  const isDuplicate = await checkDuplicateName(user.id, currentItem.parentId, name, itemId);
+  if (isDuplicate) return { success: false, message: `名前「${name}」は既に使用されています` };
 
   try {
     if (itemType === 'directory') {
-      await prisma.directory.update({ where: { id: itemId }, data: { name: newData.name }});
+      await prisma.directory.update({ where: { id: itemId }, data: { name }});
     } else {
-      await prisma.workbook.update({ where: { id: itemId }, data: { name: newData.name, description: newData.description }});
+      await prisma.workbook.update({ where: { id: itemId }, data: { name, description: desc }});
     }
     revalidatePath("/home");
     revalidatePath(`/directory/${currentItem.parentId || ''}`);
-    return { success: true, message: "更新しました。" };
-  } catch (error) {
-    return { success: false, message: "更新に失敗しました。" };
-  }
+    revalidatePath(`/workbook/${itemId}`); // ヘッダー編集反映用
+    return { success: true, message: "更新しました" };
+  } catch (e) { return { success: false, message: "更新失敗" }; }
 }
 
-// 3. アイテム移動（場所変更）
-export async function moveItem(
-  itemId: string,
-  itemType: 'directory' | 'workbook',
-  newParentId: string | null
-): Promise<ActionResult> {
+// 3. 移動 (変更なしだが短縮版として記載)
+export async function moveItem(itemId: string, itemType: 'directory' | 'workbook', newParentId: string | null): Promise<ActionResult> {
   const session = await auth();
-  if (!session?.user?.email) return { success: false, message: "ログインが必要です" };
+  if (!session?.user?.email) return { success: false, message: "ログイン要" };
   const user = await prisma.user.findUnique({ where: { email: session.user.email } });
-  if (!user) return { success: false, message: "ユーザーが見つかりません" };
+  
+  if (itemType === 'directory' && itemId === newParentId) return { success: false, message: "移動不可" };
 
-  // ディレクトリが自分自身のフォルダに入ろうとするのを防ぐ
-  if (itemType === 'directory' && itemId === newParentId) {
-    return { success: false, message: "自分自身の中には移動できません" };
-  }
-
-  // まず自分の名前を取得
-  let itemName = "";
+  // 移動対象の名前を取得して重複チェック
+  let name = "";
   if (itemType === 'directory') {
-    const d = await prisma.directory.findUnique({ where: { id: itemId } });
-    if (d) itemName = d.name;
+    const d = await prisma.directory.findUnique({ where: { id: itemId }});
+    name = d?.name || "";
   } else {
-    const w = await prisma.workbook.findUnique({ where: { id: itemId } });
-    if (w) itemName = w.name;
+    const w = await prisma.workbook.findUnique({ where: { id: itemId }});
+    name = w?.name || "";
   }
-
-  if (!itemName) return { success: false, message: "移動対象が見つかりません" };
-
-  // 移動先に同じ名前のものがないかチェック！
-  const isDuplicate = await checkDuplicateName(user.id, newParentId, itemName, itemId);
-  if (isDuplicate) {
-    return { success: false, message: `移動先に「${itemName}」と同名のアイテムが既にあります。名前を変えてから移動してください。` };
-  }
+  
+  const isDuplicate = await checkDuplicateName(user!.id, newParentId, name, itemId);
+  if (isDuplicate) return { success: false, message: `移動先に「${name}」が既に存在します` };
 
   try {
-    if (itemType === 'directory') {
-      await prisma.directory.update({ where: { id: itemId }, data: { parentId: newParentId } });
-    } else {
-      await prisma.workbook.update({ where: { id: itemId }, data: { parentId: newParentId } });
-    }
-
+    const table: any = itemType === 'directory' ? prisma.directory : prisma.workbook;
+    await table.update({ where: { id: itemId }, data: { parentId: newParentId } });
     revalidatePath("/home");
     return { success: true, message: "移動しました" };
-  } catch (error) {
-    return { success: false, message: "移動に失敗しました" };
-  }
+  } catch (e) { return { success: false, message: "移動失敗" }; }
 }
 
-// 移動先候補取得
+// その他
 export async function getDirectoryChoices(parentId: string | null) {
   const session = await auth();
   if (!session?.user?.email) return [];
   const user = await prisma.user.findUnique({ where: { email: session.user.email } });
-  return prisma.directory.findMany({ where: { userId: user?.id, parentId: parentId }, orderBy: { name: 'asc' } });
+  return prisma.directory.findMany({ where: { userId: user?.id, parentId }, orderBy: { name: 'asc' } });
 }
 
-// 削除
 export async function deleteItem(itemId: string, itemType: 'directory' | 'workbook'): Promise<ActionResult> {
   try {
-    if (itemType === 'directory') { await prisma.directory.delete({ where: { id: itemId }}); }
-    else { await prisma.workbook.delete({ where: { id: itemId }}); }
+    if (itemType === 'directory') await prisma.directory.delete({ where: { id: itemId }});
+    else await prisma.workbook.delete({ where: { id: itemId }});
     revalidatePath("/home");
-    return { success: true, message: "削除しました。" };
-  } catch (error) { return { success: false, message: "失敗しました。" }; }
+    return { success: true, message: "削除しました" };
+  } catch (e) { return { success: false, message: "失敗" }; }
 }

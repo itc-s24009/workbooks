@@ -45,6 +45,7 @@ export function CardInputForm({ workbookId }: { workbookId: string }) {
         <input 
           name="question" 
           placeholder="問題を入力" 
+          maxLength={150}
           className="bg-gray-900 border border-gray-700 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-600 transition text-white" 
           required 
         />
@@ -52,6 +53,7 @@ export function CardInputForm({ workbookId }: { workbookId: string }) {
           <input 
             name="answer" 
             placeholder="答えを入力" 
+            maxLength={150}
             className="bg-gray-900 border border-gray-700 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-600 transition flex-grow text-white" 
             required 
           />
