@@ -39,16 +39,35 @@ export default function StudyClient({ workbookName, cards, workbookId }: { workb
   const handleJudge = async (isCorrect: boolean) => {
     if (isProcessing || !currentCard) return;
     setIsProcessing(true);
-    const newResult = { cardId: currentCard.id, question: currentCard.question, answer: currentCard.answer, isCorrect };
+
+    // 今回の結果を作成（問題文と答えも一緒に溜めておく）
+    const newResult = {
+      cardId: currentCard.id,
+      question: currentCard.question, // 保持
+      answer: currentCard.answer,     // 保持
+      isCorrect: isCorrect
+    };
+    
     const updatedResults = [...results, newResult];
     setResults(updatedResults);
 
     if (currentIndex < shuffledCards.length - 1) {
-      setCurrentIndex(p => p + 1); setIsAnswerShown(false); setIsProcessing(false);
+      setCurrentIndex(prev => prev + 1);
+      setIsAnswerShown(false);
+      setIsProcessing(false);
     } else {
-      const now = new Date();
-      setFinishTime(now.toLocaleString('ja-JP'));
-      await saveStudySession({ workbookId, accuracyRate: (updatedResults.filter(r => r.isCorrect).length / shuffledCards.length)*100, results: updatedResults.map(r => ({ cardId: r.cardId, isCorrect: r.isCorrect })) });
+      const correctCount = updatedResults.filter(r => r.isCorrect).length;
+      const rate = (correctCount / shuffledCards.length) * 100;
+      
+      setFinishTime(new Date().toLocaleString());
+      
+      // 保存時に question と answer を渡す
+      await saveStudySession({
+        workbookId,
+        accuracyRate: rate,
+        results: updatedResults // これに QとA が含まれています
+      });
+      
       setPhase('RESULT');
     }
   };
