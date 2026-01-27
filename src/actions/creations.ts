@@ -50,3 +50,51 @@ export async function deleteItem(itemId: string, itemType: 'directory' | 'workbo
     return { success: true, message: "削除完了" };
   } catch (e) { return { success: false, message: "失敗" }; }
 }
+export async function moveItem(
+  itemId: string,
+  itemType: 'directory' | 'workbook',
+  newParentId: string | null // 移動先フォルダのID。nullなら一番上（ホーム）
+): Promise<ActionResult> {
+  const session = await auth();
+  if (!session?.user?.email) return { success: false, message: "ログインが必要です" };
+
+  try {
+    // ディレクトリが自分自身のフォルダに入ろうとするのを防ぐ（無限ループ防止）
+    if (itemType === 'directory' && itemId === newParentId) {
+      return { success: false, message: "自分自身の中には移動できません" };
+    }
+
+    if (itemType === 'directory') {
+      await prisma.directory.update({
+        where: { id: itemId },
+        data: { parentId: newParentId }
+      });
+    } else {
+      await prisma.workbook.update({
+        where: { id: itemId },
+        data: { parentId: newParentId }
+      });
+    }
+
+    revalidatePath("/home");
+    revalidatePath(`/directory/${newParentId}`);
+    return { success: true, message: "移動しました" };
+  } catch (error) {
+    return { success: false, message: "移動に失敗しました" };
+  }
+}
+
+// 移動先候補（フォルダ一覧）を取得する関数
+export async function getDirectoryChoices(parentId: string | null) {
+  const session = await auth();
+  if (!session?.user?.email) return [];
+  const user = await prisma.user.findUnique({ where: { email: session.user.email } });
+  
+  return prisma.directory.findMany({
+    where: { 
+      userId: user?.id,
+      parentId: parentId
+    },
+    orderBy: { name: 'asc' }
+  });
+}
