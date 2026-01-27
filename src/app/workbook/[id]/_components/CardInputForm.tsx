@@ -1,32 +1,43 @@
 'use client';
 
 import { createCard } from "@/actions/cards";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 
 export function CardInputForm({ workbookId }: { workbookId: string }) {
   const formRef = useRef<HTMLFormElement>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmittingRef = useRef(false); // 連打ガード用
 
-  const handleSubmit = async (formData: FormData) => {
-    // 実際にActionを呼び出す
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (isSubmittingRef.current) return; // ガード
+
+    isSubmittingRef.current = true;
+    setIsSubmitting(true);
+
+    const formData = new FormData(e.currentTarget);
+    // hidden inputを使わなくてもここでappend可能ですが、form内にあるのでそのままでOK
+    
     const result = await createCard(formData);
     
     if (result.success) {
-      formRef.current?.reset(); // 成功したらフォームを空にする
+      formRef.current?.reset();
+      // 連続投稿しやすいように、フォームの最初の要素（問題文）にフォーカスを戻すと親切です
+      (formRef.current?.elements[1] as HTMLElement)?.focus();
     } else {
       alert(result.message);
     }
+    
+    isSubmittingRef.current = false;
+    setIsSubmitting(false);
   };
 
   return (
     <section className="bg-gray-800 border border-gray-700 rounded-2xl p-6 mb-12 shadow-xl shadow-black/20">
       <h2 className="text-sm font-bold text-blue-400 mb-4 uppercase tracking-widest">カードを追加する</h2>
       
-      {/* 
-         JavaScriptの関数のとして呼び出すことで、型エラーを回避し、
-         結果を受け取ってリセット処理などができるようになります 
-      */}
       <form 
-        action={handleSubmit} 
+        onSubmit={handleSubmit} // actionではなくonSubmit
         ref={formRef} 
         className="grid grid-cols-1 md:grid-cols-2 gap-4"
       >
@@ -46,9 +57,12 @@ export function CardInputForm({ workbookId }: { workbookId: string }) {
           />
           <button 
             type="submit" 
-            className="bg-blue-600 px-6 rounded-lg font-bold hover:bg-blue-500 transition active:scale-95 text-white"
+            disabled={isSubmitting}
+            className="bg-blue-600 px-6 rounded-lg font-bold hover:bg-blue-500 transition active:scale-95 text-white disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap min-w-[80px] flex items-center justify-center"
           >
-            作成
+            {isSubmitting ? (
+               <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+            ) : "作成"}
           </button>
         </div>
       </form>
