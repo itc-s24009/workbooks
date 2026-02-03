@@ -1,15 +1,13 @@
 'use client';
 
 import { useState, useRef, useEffect } from "react";
-import { updateCard, deleteCard } from "@/actions/cards";
+import { deleteCard } from "@/actions/cards"; // updateCard は不要になったので削除
 import { getCardHistory } from "@/actions/study";
 
 function CardRow({ card }: { card: any }) {
+  // 編集用のステート（isEditing, q, a）を削除しました
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [q, setQ] = useState(card.question);
-  const [a, setA] = useState(card.answer);
   
   // 履歴ポップアップ用
   const [showHistory, setShowHistory] = useState(false);
@@ -27,11 +25,7 @@ function CardRow({ card }: { card: any }) {
     return () => document.removeEventListener("mousedown", clickOut);
   }, [menuRef]);
 
-  const handleUpdate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const result = await updateCard(card.id, card.workbookId, { question: q, answer: a });
-    if (result.success) setIsEditing(false); else alert(result.message);
-  };
+  // handleUpdate 関数も削除しました
 
   const handleOpenHistory = async () => {
     setShowHistory(true);
@@ -62,49 +56,42 @@ function CardRow({ card }: { card: any }) {
           </div>
         </div>
 
+        {/* 三点リーダーメニュー */}
         <div className="relative" ref={menuRef}>
-          <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="p-2 rounded-full hover:bg-gray-600">
+          <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="p-2 rounded-full hover:bg-gray-600 transition-colors">
             <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01" />
             </svg>
           </button>
+          
           {isMenuOpen && (
             <div className="absolute right-0 top-10 w-40 bg-gray-800 border border-gray-600 rounded-xl shadow-2xl z-30 overflow-hidden" onMouseLeave={() => setIsMenuOpen(false)}>
-              <button onClick={() => { setIsEditing(true); setIsMenuOpen(false); }} className="block w-full text-left px-4 py-3 text-sm hover:bg-gray-700 transition">編集</button>
-              <button onClick={() => { setIsDeleting(true); setIsMenuOpen(false); }} className="block w-full text-left px-4 py-3 text-sm text-red-400 hover:bg-gray-700 border-t border-gray-700">削除</button>
+              {/* 編集ボタンを削除し、削除ボタンのみにしました */}
+              <button 
+                onClick={() => { setIsDeleting(true); setIsMenuOpen(false); }} 
+                className="block w-full text-left px-4 py-3 text-sm text-red-400 hover:bg-gray-700 transition"
+              >
+                削除
+              </button>
             </div>
           )}
         </div>
 
-        {/* 編集モーダル */}
-        {isEditing && (
-          <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-[200] p-4">
-            <form onSubmit={handleUpdate} className="bg-gray-800 border border-gray-700 rounded-xl p-6 w-full max-w-sm shadow-2xl">
-              <h3 className="font-bold text-xl mb-6 text-center text-white">編集</h3>
-              <div className="space-y-4">
-                <input value={q} onChange={e => setQ(e.target.value)} placeholder="問題" maxLength={2000} className="bg-gray-700 border border-gray-600 text-white p-3 w-full rounded-lg" required />
-                <input value={a} onChange={e => setA(e.target.value)} placeholder="答え" maxLength={2000} className="bg-gray-700 border border-gray-600 text-white p-3 w-full rounded-lg" required />
-              </div>
-              <div className="flex justify-center gap-4 mt-8">
-                <button type="button" onClick={() => setIsEditing(false)} className="bg-gray-700 px-6 py-2 rounded-lg text-gray-300">中止</button>
-                <button type="submit" className="bg-blue-600 px-6 py-2 rounded-lg font-bold">保存</button>
-              </div>
-            </form>
-          </div>
-        )}
+        {/* 編集モーダルがあった場所 (削除済み) */}
 
         {/* 削除モーダル */}
         {isDeleting && (
            <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-[200] p-4 text-center">
             <div className="bg-gray-800 border border-gray-700 rounded-xl p-8 w-full max-w-sm shadow-2xl">
               <h3 className="font-bold text-xl mb-6 text-white">削除しますか？</h3>
-              <button onClick={async () => { await deleteCard(card.id, card.workbookId); setIsDeleting(false); }} className="bg-red-600 px-10 py-3 rounded-xl font-bold w-full text-white">今すぐ削除</button>
-              <button onClick={() => setIsDeleting(false)} className="text-gray-500 mt-4 block w-full hover:underline">やめる</button>
+              <p className="text-gray-400 mb-6 text-sm">この操作は元に戻せません。</p>
+              <button onClick={async () => { await deleteCard(card.id, card.workbookId); setIsDeleting(false); }} className="bg-red-600 px-10 py-3 rounded-xl font-bold w-full text-white hover:bg-red-500 transition shadow-lg">削除する</button>
+              <button onClick={() => setIsDeleting(false)} className="text-gray-500 mt-4 block w-full hover:underline font-bold text-xs uppercase tracking-widest">キャンセル</button>
             </div>
           </div>
         )}
 
-        {/* ================= 完全同一UI 詳細分析ポップアップ (全体スクロール型) ================= */}
+        {/* 詳細履歴ポップアップ (変更なし) */}
         {showHistory && (
           <div className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-[210] p-4">
             <div className="bg-gray-800 border border-gray-700 rounded-3xl w-full max-w-md p-8 shadow-2xl relative max-h-[85vh] overflow-y-auto custom-scrollbar flex flex-col">
