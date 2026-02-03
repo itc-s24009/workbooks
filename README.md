@@ -1,36 +1,44 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Digital Flashcards
+日々の勉強を効率よくするために作った、オリジナルの単語帳アプリです。
 
-## Getting Started
+## 概要
 
-First, run the development server:
+「自分だけの問題集」を作って、手軽に暗記学習ができるWebアプリです。
+紙の単語帳と同じように「表（問題）」と「裏（答え）」を登録して、ランダムに出題される問題を解くことができます。間違えた問題の記録や、友達への問題集シェア機能もつけました。
+Next.jsを使って、画面だけでなく裏側のデータベース（PostgreSQL）まで一通り自分で動かすことを目標に制作しました。
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+### デモサイト
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+以下のリンクから実際にWebサイトを使えます。
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+**[https://workbooks-ze82.vercel.app](https://workbooks-ze82.vercel.app)**
+*(※Googleアカウントでのログインが必要です)*
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 主な機能
 
-## Learn More
+- **学習モード**: 作った問題をランダムに解く機能です。答えを表示して「わかった」「わからなかった」を選ぶだけで、正答率が自動で記録されます。
+- **フォルダ整理**: パソコンのフォルダのように、「英語」の中に「英単語」「文法」...とフォルダの中にフォルダを作って整理できるようにしました。
+- **消えない学習履歴**: もとの問題を削除したり書き換えたりしても、「過去に解いたときの内容」は履歴としてそのまま残るようにしました。これで正確な振り返りができます。
+- **シェア機能**: 友達のメールアドレスを入力すると、自分の問題集をコピーして送れます。
 
-To learn more about Next.js, take a look at the following resources:
+## 制作背景
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+私自身、勉強のモチベーションを上げるためのツールが欲しかったのがきっかけです。
+また、学校の課題や普段の学習では画面（フロントエンド）を作ることが多かったので、「ログイン機能」や「データの保存」といった裏側（バックエンド・データベース）の仕組みも理解して、自分ひとりでアプリ全体を作れるようになりたいと思い挑戦しました。
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### 工夫した点
 
-## Deploy on Vercel
+- **互いに干渉しないシェア機能**
+  友人に問題集を送る際、リンク共有ではなく「データのコピー」を渡す仕組みにしました。これにより、受け取った側が自由に編集・削除しても、元の作成者のデータには一切影響が出ないようにしました。
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- **消えない学習記録**
+  問題を削除しても、過去の努力（学習履歴）まで消えてしまわないように工夫しました。履歴データ側に「解いた時点の問題文」を保存する仕組みにすることで、後から問題を整理しても、過去の記録はそのまま残ります。
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 使用技術
+
+- **Framework**: Next.js 15 (App Router / TypeScript)
+- **Auth**: NextAuth.js (Googleログイン)
+- **Database**: Neon (PostgreSQL)
+- **ORM**: Prisma
+- **Style**: Tailwind CSS
+- **Deploy**: Vercel
